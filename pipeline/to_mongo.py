@@ -1,13 +1,9 @@
 from pymongo import MongoClient
-# pprint library is used to make the output look more pretty
 from pprint import pprint
-import pprint
 from dotenv import load_dotenv
-load_dotenv()
-
 import os
 
-
+load_dotenv()
 username = os.getenv("MONGO_USR")
 password = os.getenv("MONGO_PWD")
 mongo_url = os.getenv("MONGO_URL")
@@ -18,4 +14,4 @@ client = MongoClient(MURL)
 db=client.stg
 print(db.list_collection_names())
 posts = db.posts
-pprint.pprint(posts.find_one())
+pprint(posts.find_one())
