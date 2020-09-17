@@ -5,6 +5,10 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import requests
 import json
+import time
+from ez_db import EzDb
+
+db_conn = EzDb()
 
 def bs():
     # url = 'https://www.careerbuilder.com/jobs?posted=1&pay=&cat1=&radius=30&emp=&cb_apply=false&keywords=&location=CA&company_name=&cb_workhome=false'
@@ -23,7 +27,6 @@ def bs():
             # page_url = fulllink.split("=")[1]
             # print(page_url)
 
-
 def init_mongo_record_schema():
     return {
         'jobTitle': None,
@@ -40,15 +43,23 @@ def init_mongo_record_schema():
         'source': None
     }
 
-def j():
-    for page in range(1, 2):
+def parse():
+    for page in range(8,50):
         url = 'https://www.monster.com/jobs/search/pagination/?where=California&isDynamicPage=true&isMKPagination=true&page=' + str(page) + '&total=26'
         response = requests.get(url)
         page_json = response.text
         data = json.loads(page_json)
+
+        visited_list = db_conn.get_sources()
         for obj in data:
             # print(obj)
             if 'Title' in obj:
+                source = obj['TitleLink']
+                print(source)
+
+                if source in visited_list:
+                    continue
+                visited_list.append(source)
                 jobTitle = obj['Title']
                 print(jobTitle)
                 location = obj['LocationText']
@@ -64,12 +75,33 @@ def j():
                         companyLogo = 'https:' + companyLogo
                     print(companyLogo)
                 # 'url': None,
-                source = obj['TitleLink']
-                print(source)
-                print(parse_single_page(source))
+
+                page_data = parse_single_page(source)
+
                 print()
+                mongo_obj =  {
+                    'jobTitle': jobTitle,
+                    'industry': page_data['industry'],
+                    'employmentType': page_data['employmentType'],
+                    'description': page_data['description'],
+                    'email': None,
+                    'url': page_data['url'],
+                    'createdAt': createdAt,
+                    'updatedAt': datetime.now(),
+                    'company': company,
+                    'location': location,
+                    'companyLogo': companyLogo,
+                    'source': source
+                }
+                db_conn.create_post(mongo_obj)
 
+                time.sleep(1)
 
+# returns
+#   'description': description,
+#   'employmentType': employmentType,
+#   'industry': industry,
+#   'url': url,
 def parse_single_page(url):
     response = requests.get(url)
     page_html = response.text
@@ -82,10 +114,11 @@ def parse_single_page(url):
     data = json.loads(content.split('window.__INITIAL_STATE__ = ')[1])
     job = data['job']
     description = job['description']
-    url = job['extensions']['apply']['applyOnlineUrl']
-
+    try:
+        url = job['extensions']['apply']['applyOnlineUrl']
+    except:
+        url = None
     # if job['extensions'] and job['extensions']['inferredData']:
-
         # niches = job['extensions']['inferredData']['niches']
         # rankedSkills = job['extensions']['inferredData']['rankedSkills']
     try:
@@ -111,8 +144,4 @@ def parse_single_page(url):
         # rankedSkills: rankedSkills
     }
 
-
-url = 'https://job-openings.monster.com/cna-full-time-rotating-shift-templeton-ca-us-twin-cities-community-hospital/db22aab5-997d-4d78-9ac7-994b6b97ff61'
-# print(parse_single_page(url))
-
-j()
+parse()
