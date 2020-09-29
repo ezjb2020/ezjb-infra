@@ -36,11 +36,13 @@ def init_mongo_record_schema():
         'email': None,
         'url': None,
         'createdAt': None,
-        'updatedAt': datetime.now(),
+        'updatedAt': datetime.utcnow(),
         'company': None,
         'location': None,
         'companyLogo': None,
-        'source': None
+        'source': None,
+        'source_url': None,
+        'sourcePostedAt': None
     }
 
 def parse():
@@ -54,21 +56,22 @@ def parse():
         for obj in data:
             # print(obj)
             if 'Title' in obj:
-                source = obj['TitleLink']
-                print(source)
+                source_url = obj['TitleLink']
+                print(source_url)
 
-                if source in visited_list:
+                if source_url in visited_list:
                     continue
-                visited_list.append(source)
+                visited_list.append(source_url)
                 jobTitle = obj['Title']
                 print(jobTitle)
                 location = obj['LocationText']
                 print(location)
-                createdAt = datetime.strptime(obj['DatePosted'], '%Y-%m-%dT%H:%M')
-                print(createdAt)
+                postedAt = datetime.strptime(obj['DatePosted'], '%Y-%m-%dT%H:%M')
+                print(postedAt)
                 if obj['Company'] and obj['Company']['Name']:
                     company = obj['Company']['Name']
                     print(company)
+                companyLogo = None
                 if 'CompanyLogoUrl' in obj:
                     companyLogo = obj['CompanyLogoUrl']
                     if companyLogo[0:2] == '//':
@@ -76,7 +79,10 @@ def parse():
                     print(companyLogo)
                 # 'url': None,
 
-                page_data = parse_single_page(source)
+                try:
+                    page_data = parse_single_page(source_url)
+                except:
+                    continue
 
                 print()
                 mongo_obj =  {
@@ -86,12 +92,14 @@ def parse():
                     'description': page_data['description'],
                     'email': None,
                     'url': page_data['url'],
-                    'createdAt': createdAt,
-                    'updatedAt': datetime.now(),
+                    'createdAt': datetime.utcnow(),
+                    'updatedAt': datetime.utcnow(),
                     'company': company,
                     'location': location,
                     'companyLogo': companyLogo,
-                    'source': source
+                    'source': 'monster',
+                    'source_url': source_url,
+                    'sourcePostedAt': postedAt,
                 }
                 db_conn.create_post(mongo_obj)
 
@@ -110,7 +118,11 @@ def parse_single_page(url):
     # page_html = open(cb)
     soup = BeautifulSoup ( page_html )
 
-    content = soup.find('script',{"name":"redux_preload"}).contents[0]
+    try:
+        content = soup.find('script',{"name":"redux_preload"}).contents[0]
+    except:
+        print("Failed to load page. Continuing...")
+        raise
     data = json.loads(content.split('window.__INITIAL_STATE__ = ')[1])
     job = data['job']
     description = job['description']

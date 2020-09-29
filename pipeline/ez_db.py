@@ -24,6 +24,9 @@ class EzDb():
         self.posts = self.db.posts
         pprint(self.posts.find_one())
 
+    def posts(self):
+        return self.db.posts
+
     def create_post(self, post):
         self.posts = self.db.posts
         self.posts.insert_one(post)
